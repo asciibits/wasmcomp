@@ -1,0 +1,27 @@
+{
+  "name": "webaric",
+  "version": "1.0.0",
+  "description": "Small, fast Arithmetic Coding compression module",
+  "keywords": [
+    "wasm",
+    "WebAssembly",
+    "Arithmetic",
+    "Coding",
+    "compression"
+  ],
+  "homepage": "https://github.com/asciibits/webaric#readme",
+  "bugs": {
+    "url": "https://github.com/asciibits/webaric/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/asciibits/webaric.git"
+  },
+  "license": "MIT",
+  "author": "asciibits",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
