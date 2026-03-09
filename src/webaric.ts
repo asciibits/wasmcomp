@@ -1,34 +1,22 @@
-export type ZoomFunc = (
+export type ZoomFunc = (low: number, high: number) => number[];
+
+export type EncodeBitFunc = (
   low: number,
   high: number,
   mid: number,
-  mid_zooms?: number,
-  need_leading_md?: number,
+  bit: number,
+  in_mid_zoom?: number,
 ) => number[];
 
 export class WebAric {
-  private zoom_low: ZoomFunc;
+  private _zoom: ZoomFunc;
+
   constructor(instance: WebAssembly.Instance) {
-    console.log('Got instance: ' + instance);
-    console.log('Got exports: ' + instance.exports);
-    console.log('Got zoom_low: ' + instance.exports.zoom_low);
-    this.zoom_low = instance.exports.zoom_low as ZoomFunc;
+    this._zoom = instance.exports._zoom as ZoomFunc;
   }
 
-  async zoomLow(
-    low: number,
-    mid: number,
-    high: number,
-    mid_zooms = 0,
-    need_leading_mid = true,
-  ) {
-    return await this.zoom_low(
-      low >> 0,
-      mid >> 0,
-      high >> 0,
-      mid_zooms | 0,
-      need_leading_mid ? 1 : 0,
-    );
+  zoom(low: number, high: number) {
+    return this._zoom(low >>> 0, high >>> 0).map(v => v >>> 0);
   }
 }
 
@@ -38,7 +26,16 @@ export async function loadWebAricFromRemote(remotePath: string) {
   return new WebAric(wasm.instance);
 }
 
-export async function loadWebAric(data: Promise<Buffer> | Buffer) {
-  const wasm = await WebAssembly.instantiate(data);
-  return new WebAric(wasm);
+export async function loadWebAric(
+  buffer: Buffer,
+  loggers: Record<string, (...values: number[]) => void> = {},
+) {
+  const module = (await WebAssembly.instantiate(buffer, {
+    test: {
+      zoomStart: () => {},
+      zoomEnd: () => {},
+      ...loggers,
+    },
+  })) as any;
+  return new WebAric(module.instance);
 }

@@ -45,6 +45,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
+    "build": "tsc && npx -p wabt wat2wasm src/webaric.wat -o lib/webaric.wasm",
     "test": "node --import tsx --test ./tests/**/*",
     "clean": "rm -rf ./lib/*",
     "prettier-format": "prettier --config .prettierrc '**/*.ts' '**/*.html' '**/*.css' --write",
