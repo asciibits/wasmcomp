@@ -6,7 +6,7 @@ export async function loadWebAricFromRemote(remotePath: string) {
 
 export async function loadWebAric(
   buffer: Buffer,
-  loggers: Record<string, (...values: number[]) => void> = {},
+  loggers: Record<string, Function> = {},
 ) {
   const module = (await WebAssembly.instantiate(buffer, {
     test: {
