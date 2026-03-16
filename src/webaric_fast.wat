@@ -25,24 +25,11 @@
   ;; position between $low and $high that represents a low and high zoom
   ;; respectively.
   ;;
-  ;; This function is designed to be called in a processing loop, though it does
-  ;; no looping or recursion on its own.
-  ;;
-  ;; For input, it takes a series of "state" values. These should be initialized
-  ;; to zero on the first call, and passed from this functions output on
-  ;; subsequent calls.
-  ;;
-  ;; This implementation favors speed over compression, and does not attempt to
-  ;; resize the zoom window unless the next bit can be determined. This means no
-  ;; "mid zooms".
-  ;;
-  ;; State parameters (initialize to 0 on first call, pass back in the result
-  ;;   state on subsequent calls):
-  ;; i32 $low          : The (inclusive) lower bound for the current window
-  ;; i32 $high         : The (inclusive) upper bound for the current window
-  ;; i32 $scratch      : Scratch space
-  ;; i32 $scratch_idx  : The position within scratch after all currently
-  ;;                     resolved zomms (i.e. before and dangling zooms)
+  ;; This works exactly like the standard (i.e."not fast") version except for
+  ;; 1 big difference: This version never does mid zooms. Instead, it lets
+  ;; the window size shrink all the way down to 1 if necessary to land in a
+  ;; position where an outer zoom can be done. This removes a lot of corner
+  ;; case handling, but it does negatively affect the compression. Values TBD.
   ;;
   ;; Note the invariant:
   ;;   0 <= $low < $mid <= $high < 2^32
@@ -59,7 +46,7 @@
   ;; Output results:
   ;; i32 $has_results: 1 if $result has data, 0 otherwise
   ;; i32 $result     : 32 bits of output data, if $result_count == 1
-  (func $encode_bit (export "_encode_bit")
+  (func $encode_bit_fast (export "_encode_bit_fast")
     ;;
     ;; State values
     ;;
@@ -84,13 +71,13 @@
     (result i32)
     ;; scratch_idx
     (result i32)
-    ;; result_count. Either 0, 1, or (rarely) 2
+    ;; has_result - 1 if $result has data, 0 otherwise
     (result i32)
-    ;; result: set if result_count > 0
+    ;; result: set if has_result > 0
     (result i32)
 
     (local $outer_zooms i32)
-    (local $result_count i32)
+    (local $has_result i32)
     (local $result i32)
 
     ;; process the bit and reset the range
@@ -130,23 +117,25 @@
         i32.ge_u
         (if
           (then
-            ;; Leave this branch - it is predictably weighted to the `else`
+            ;; Leave this branch - it is predictably unlikely
             (local.set $result (local.get $scratch))
-            (local.set $result_count (i32.const 1))
+            (local.set $has_result (i32.const 1))
             (local.set $scratch_idx
-              (i32.sub (local.get $scratch_idx) (i32.const 32))
+              (i32.and (local.get $scratch_idx) (i32.const 0x1f))
             )
             (local.set $scratch
-              (i32.and
-                (i32.shl
-                  (local.get $low)
-                  (i32.sub (local.get $outer_zooms) (local.get $scratch_idx))
-                )
-                (call $not32
-                  (i32.shr_u (i32.const -1) (local.get $scratch_idx))
-                )
+              (i32.shl
+                (local.get $low)
+                (i32.sub (local.get $outer_zooms) (local.get $scratch_idx))
               )
             )
+          )
+        )
+        ;; mask off the parts of $low that got written to $scratch
+        (local.set $scratch
+          (i32.and
+            (local.get $scratch)
+            (call $not32 (i32.shr_u (i32.const -1) (local.get $scratch_idx)))
           )
         )
 
@@ -155,6 +144,7 @@
         (i32.shl (local.get $high) (local.get $outer_zooms))
       )
       (else
+        ;; no zooming - just dump the current low/high
         (local.get $low)
         (local.get $high)
       )
@@ -166,7 +156,7 @@
     (local.get $scratch_idx)
 
     ;; actual results
-    (local.get $result_count)
+    (local.get $has_result)
     (local.get $result)
   )
 )

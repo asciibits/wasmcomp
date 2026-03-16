@@ -2,6 +2,7 @@
   ;; IMPORT(utils.wat)
   (func $min32 (import "utils" "_min32") (param i32 i32) (result i32))
   (func $not32 (import "utils" "_not32") (param i32) (result i32))
+  (func $not64 (import "utils" "_not64") (param i64) (result i64))
   (func $make2x32 (import "utils" "_make2x32") (param i32 i32) (result v128))
   (func $get2x32 (import "utils" "_get2x32") (param v128) (result i32 i32))
   (func $log1 (import "utils" "_log1") (param i32))
@@ -33,7 +34,6 @@
       )
     )
   )
-
 
   ;; Calculate the number of times we can "zoom" into a windowed region while
   ;; keeping the boundaries within convenient ranges.
@@ -322,6 +322,7 @@
     local.set $mid_zooms
     local.tee $outer_zooms
 
+    ;; This if block leaves the new $low and $high on the stack
     (if (result i32 i32)
       (then
         ;; we have an outer zoom
@@ -359,23 +360,6 @@
                 )
               )
             )
-            (i64.ge_u (local.get $dangling_idx) (i64.const 32))
-            (if
-              (then
-                ;; writing past the end of scratch
-                ;; record the previous result in scratch, snd shift all values
-                (local.set $result
-                  (i64.and (local.get $scratch) (i64.const 0xffffffff00000000))
-                )
-                (local.set $scratch
-                  (i64.shl (local.get $scratch) (i64.const 32))
-                )
-                (local.set $result_count (i32.const 1))
-                (local.set $dangling_idx
-                  (i64.sub (local.get $dangling_idx) (i64.const 32))
-                )
-              )
-            )
             (local.set $scratch_idx (local.get $dangling_idx))
           )
         ) ;; end - dangling mids
@@ -388,14 +372,7 @@
             (local.get $scratch)
             (i64.shr_u
               (i64.shl
-                (i64.extend_i32_u
-                  (i32.and
-                    (local.get $low)
-                    (call $not32
-                      (i32.shr_u (i32.const -1) (local.get $outer_zooms))
-                    )
-                  )
-                )
+                (i64.extend_i32_u (local.get $low))
                 (i64.const 32)
               )
               (local.get $scratch_idx)
@@ -409,38 +386,51 @@
             (i64.extend_i32_u (local.get $outer_zooms))
           )
         )
-
+        ;; Check for results - should be less than 1 in 32, so leave as a branch
         i64.const 32
         i64.ge_u
         (if
           (then
+            (local.set $result (local.get $scratch))
+
             ;; Leave this branch - it is predictably weighted to the `else`
-            (i32.eqz (local.get $result_count))
+            (i64.ge_u (local.get $scratch_idx) (i64.const 64))
             (if
               (then
-                (local.set $result
-                  (i64.or
-                    (local.get $result)
-                    (i64.shr_u (local.get $scratch) (i64.const 32))
+                ;; For this branch to occur, we must have at least 32
+                ;; consecutive zoom-mids. This branch will almost certainly
+                ;; never get hit outside of explicitly tuned test cases meant
+                ;; to exercise it.
+                (local.set $scratch
+                  (i64.shl
+                    (i64.extend_i32_u (local.get $low))
+                    (i64.sub (i64.const 96) (local.get $scratch_idx))
                   )
                 )
                 (local.set $result_count (i32.const 2))
+
               )
               (else
-                (local.set $result
-                  (i64.and (local.get $scratch) (i64.const 0xffffffff00000000))
+                (local.set $scratch
+                  (i64.shl (local.get $scratch) (i64.const 32))
                 )
                 (local.set $result_count (i32.const 1))
               )
             )
-            (local.set $scratch
-              (i64.shl (local.get $scratch) (i64.const 32))
-            )
+            ;; get scratch_index back into the 0..31 range
             (local.set $scratch_idx
-              (i64.sub (local.get $scratch_idx) (i64.const 32))
+              (i64.and (local.get $scratch_idx) (i64.const 0x1f))
             )
           )
         )
+        ;; mask off the parts of $low that got written to $scratch
+        (local.set $scratch
+          (i64.and
+            (local.get $scratch)
+            (call $not64 (i64.shr_u (i64.const -1) (local.get $scratch_idx)))
+          )
+        )
+
         (local.set $dangling_idx
           (i64.add
             (local.get $scratch_idx) (i64.extend_i32_u (local.get $mid_zooms))
@@ -457,11 +447,11 @@
         )
       )
       (else
+        ;; no outer zooms - handle the dangles
         (local.get $mid_zooms)
         (if (result i32 i32)
           (then
-            ;; no outer-zooms, just update the dangling mids, but don't
-            ;; dangle past the end of $scratch
+            ;; new dangles, ensure they don't dangle past the end of $scratch
             (local.tee $dangling_idx
               (i64.add
                 (local.get $dangling_idx)

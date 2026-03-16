@@ -31,6 +31,9 @@
   (func $not32 (export "_not32") (param i32) (result i32)
     (i32.xor (local.get 0) (i32.const -1))
   )
+  (func $not64 (export "_not64") (param i64) (result i64)
+    (i64.xor (local.get 0) (i64.const -1))
+  )
 
   (func $make4x32 (export "_make4x32") (param i32 i32 i32 i32) (result v128)
     (v128.const i64x2 0 0)
