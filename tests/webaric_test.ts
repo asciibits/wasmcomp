@@ -166,8 +166,8 @@ suite('Arithmetic Coder', () => {
       // symmetric: 0, 6, 9, f
       // pairs: 1/8, 2/4, 3/c, 5/a, 7/e, b/d
       assert.equal(
-        as64(utils._reverse64(0x12345678df21bb87n)),
-        0xe1dd84fb1e6a2c48n,
+        as64(utils._reverse64(0x0123456789abcdefn)),
+        0xf7b3d591e6a2c480n,
       );
       assert.equal(
         as64(utils._reverse64(0xbf4e2f2391b1217an)),

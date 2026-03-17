@@ -187,12 +187,12 @@
 
   (func $reverse32 (export "_reverse32") (param i32) (result i32)
     (local $v v128)
-    (local.get $v)
-    (i8x16.replace_lane 0 (local.get 0))
-    (i8x16.replace_lane 4 (i32.shr_u (local.get 0) (i32.const 8)))
-    (i8x16.replace_lane 8 (i32.shr_u (local.get 0) (i32.const 16)))
-    (i8x16.replace_lane 12 (i32.shr_u (local.get 0) (i32.const 24)))
-    (local.set $v)
+    (local.set $v
+      (i8x16.shuffle 0 9 10 11 1 13 14 15 2 9 10 11 3 13 14 15
+        (i32x4.replace_lane 0 (v128.const i64x2 0 0) (local.get 0))
+        (local.get $v)
+      )
+    )
 
     (i32x4.extract_lane 0
       (i8x16.shuffle 14 10 6 2 4 5 6 7 8 9 10 11 12 13 14 15
@@ -217,21 +217,19 @@
   (func $reverse64 (export "_reverse64") (param i64) (result i64)
     (local $v1 v128)
     (local $v2 v128)
-    (local $b i32)
-    (local.get $v1)
-    (i8x16.replace_lane 0 (local.tee $b (i32.wrap_i64 (local.get 0))))
-    (i8x16.replace_lane 4 (i32.shr_u (local.get $b) (i32.const 8)))
-    (i8x16.replace_lane 8 (i32.shr_u (local.get $b) (i32.const 16)))
-    (i8x16.replace_lane 12 (i32.shr_u (local.get $b) (i32.const 24)))
-    (local.set $v1)
-    (local.get $v2)
-    (i8x16.replace_lane 0
-      (local.tee $b (i32.wrap_i64 (i64.shr_u (local.get 0) (i64.const 32))))
+
+    (local.set $v1
+      (i8x16.shuffle 0 9 10 11 1 13 14 15 2 9 10 11 3 13 14 15
+        (i64x2.replace_lane 0 (v128.const i64x2 0 0) (local.get 0))
+        (local.get $v1)
+      )
     )
-    (i8x16.replace_lane 4 (i32.shr_u (local.get $b) (i32.const 8)))
-    (i8x16.replace_lane 8 (i32.shr_u (local.get $b) (i32.const 16)))
-    (i8x16.replace_lane 12 (i32.shr_u (local.get $b) (i32.const 24)))
-    (local.set $v2)
+    (local.set $v2
+      (i8x16.shuffle 4 9 10 11 5 13 14 15 6 9 10 11 7 13 14 15
+        (i64x2.replace_lane 0 (v128.const i64x2 0 0) (local.get 0))
+        (local.get $v2)
+      )
+    )
 
     (i64x2.extract_lane 0
       (i8x16.shuffle 30 26 22 18 14 10 6 2 8 9 10 11 12 13 14 15
