@@ -10,6 +10,11 @@ trap 'rm -f "$WAT_FILE" "$WASM_FILE"' EXIT ERR HUP INT TERM
 npx wasm2wat ./target/wasm32-unknown-unknown/wasm/wasmcomp.wasm -o $WAT_FILE
 # get the list of exported finctions
 exports=( $(sed -r -n -e '/wasm_bindgen/{n;/^pub fn /s/^.* ([^ ]*)\(.*/"\1"/p}' src/*.rs) )
+if [ "${#exports[*]}" == "0" ]; then
+  echo "No exports found - problem with the build script?" >&2
+  exit 1
+fi
+echo -e "    \033[1;32mPreserving wasm exports\033[m: ${exports[@]/*/&,}" >&2
 # turn the list of exports into a sed expression like: "add"|"sub"
 exports="$(IFS="|"; echo "${exports[*]}")"
 # strip all non-exported symbols from the web assembly

@@ -22,4 +22,5 @@ opt-level = 2
 overflow-checks = false
 
 [features]
+# With this enabled, the javascript must supply a list of debug methods
 js_debug = []
